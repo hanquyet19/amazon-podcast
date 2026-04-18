@@ -27,7 +27,7 @@ export default function App() {
   // Fetch Anchor RSS
   const fetchRSS = async () => {
     try {
-      const currentUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://anchor.fm/s/1110f80e0/podcast/rss?nocache=' + Date.now());
+      const currentUrl = 'https://anchor.fm/s/1110f80e0/podcast/rss?nocache=' + Date.now();
       const res = await fetch(currentUrl);
       const text = await res.text();
       const parser = new DOMParser();
@@ -113,7 +113,7 @@ export default function App() {
       await fetchGitHubData(); // Refresh SHA
     } catch (e) {
       console.error('Failed to push to GitHub', e);
-      alert('Failed to save to GitHub. Check your token and repo details.');
+      alert('Failed to save to GitHub. Error: ' + (e.message || JSON.stringify(e)));
     }
     setIsSaving(false);
   };
