@@ -14,7 +14,7 @@ export default function App() {
   });
 
   const [episodes, setEpisodes] = useState([]);
-  const [dataJson, setDataJson] = useState({ title: "My Custom Podcast Hub", episodes: {} });
+  const [dataJson, setDataJson] = useState({ title: "Friendly Podcast For You", episodes: {} });
   const [dataJsonSha, setDataJsonSha] = useState('');
   
   const [isSyncing, setIsSyncing] = useState(false);
@@ -27,7 +27,8 @@ export default function App() {
   // Fetch Anchor RSS
   const fetchRSS = async () => {
     try {
-      const res = await fetch(RSS_URL);
+      const currentUrl = 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://anchor.fm/s/1110f80e0/podcast/rss?nocache=' + Date.now());
+      const res = await fetch(currentUrl);
       const text = await res.text();
       const parser = new DOMParser();
       const xml = parser.parseFromString(text, 'text/xml');
