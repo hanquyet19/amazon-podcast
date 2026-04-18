@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Save, Link as LinkIcon, Edit3, Globe, CheckCircle2 } from 'lucide-react';
+import { Settings, RefreshCw, Save, Link as LinkIcon, Edit3, Globe, CheckCircle2, EyeOff, RotateCcw } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 
 const RSS_URL = 'https://corsproxy.io/?url=' + encodeURIComponent('https://anchor.fm/s/1110f80e0/podcast/rss');
@@ -92,6 +92,17 @@ export default function App() {
     newData.episodes[editingEpisode.guid] = editingLink;
     setDataJson(newData);
     setEditingEpisode(null);
+  };
+
+  const toggleHideEpisode = (guid) => {
+    const newData = { ...dataJson };
+    if (!newData.hiddenEpisodes) newData.hiddenEpisodes = [];
+    if (newData.hiddenEpisodes.includes(guid)) {
+      newData.hiddenEpisodes = newData.hiddenEpisodes.filter(id => id !== guid);
+    } else {
+      newData.hiddenEpisodes.push(guid);
+    }
+    setDataJson(newData);
   };
 
   const pushToGitHub = async () => {
@@ -271,11 +282,20 @@ export default function App() {
             {episodes.map(ep => {
               const hasCustomLink = dataJson.episodes && dataJson.episodes[ep.guid];
               const customLink = dataJson.episodes ? dataJson.episodes[ep.guid] : null;
+              const isHidden = dataJson.hiddenEpisodes && dataJson.hiddenEpisodes.includes(ep.guid);
 
               return (
-                <div key={ep.guid} className={`flex items-center justify-between p-4 rounded-xl border transition group ${hasCustomLink ? 'border-emerald-100 bg-emerald-50/30' : 'border-slate-100 bg-white hover:border-blue-200'}`}>
+                <div key={ep.guid} className={`flex items-center justify-between p-4 rounded-xl border transition group ${
+                  isHidden 
+                    ? 'border-slate-100 bg-slate-50 opacity-60 grayscale' 
+                    : hasCustomLink 
+                      ? 'border-emerald-100 bg-emerald-50/30' 
+                      : 'border-slate-100 bg-white hover:border-blue-200'
+                }`}>
                   <div className="flex-1 min-w-0 pr-4">
-                    <h4 className="font-semibold text-slate-800 truncate" title={ep.title}>{ep.title}</h4>
+                    <h4 className={`font-semibold truncate ${isHidden ? 'text-slate-500 line-through' : 'text-slate-800'}`} title={ep.title}>
+                      {ep.title}
+                    </h4>
                     <p className="text-xs text-slate-400 mt-1">{new Date(ep.pubDate).toLocaleDateString()}</p>
                     
                     <div className="flex items-center gap-1.5 mt-2">
@@ -284,27 +304,44 @@ export default function App() {
                         href={hasCustomLink ? customLink : ep.link} 
                         target="_blank" 
                         rel="noreferrer"
-                        className={`text-sm truncate ${hasCustomLink ? 'text-emerald-600 hover:text-emerald-700 font-medium' : 'text-slate-400 hover:text-slate-600'} hover:underline`}
+                        className={`text-sm truncate ${
+                          isHidden ? 'text-slate-400 pointer-events-none' : hasCustomLink ? 'text-emerald-600 hover:text-emerald-700 font-medium' : 'text-slate-400 hover:text-slate-600 hover:underline'
+                        }`}
                       >
                         {hasCustomLink ? customLink : 'Default Anchor URL'}
                       </a>
                     </div>
                   </div>
                   
-                  <button 
-                    onClick={() => {
-                      setEditingEpisode(ep);
-                      setEditingLink(customLink || '');
-                    }}
-                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                      hasCustomLink 
-                        ? 'text-emerald-600 bg-emerald-100 hover:bg-emerald-200'
-                        : 'text-blue-600 bg-blue-50 hover:bg-blue-100 opacity-0 group-hover:opacity-100 focus:opacity-100'
-                    }`}
-                  >
-                    <Edit3 className="w-4 h-4" />
-                    {hasCustomLink ? 'Edit Link' : 'Add Link'}
-                  </button>
+                  <div className="flex-shrink-0 flex items-center gap-2">
+                    <button 
+                      onClick={() => toggleHideEpisode(ep.guid)}
+                      className={`flex items-center justify-center p-2 rounded-lg transition ${
+                        isHidden 
+                          ? 'text-amber-600 bg-amber-50 hover:bg-amber-100'
+                          : 'text-rose-500 bg-rose-50 hover:bg-rose-100 opacity-0 group-hover:opacity-100 focus:opacity-100'
+                      }`}
+                      title={isHidden ? "Restore Episode" : "Delete Episode"}
+                    >
+                      {isHidden ? <RotateCcw className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                    </button>
+                    {!isHidden && (
+                      <button 
+                        onClick={() => {
+                          setEditingEpisode(ep);
+                          setEditingLink(customLink || '');
+                        }}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                          hasCustomLink 
+                            ? 'text-emerald-600 bg-emerald-100 hover:bg-emerald-200'
+                            : 'text-blue-600 bg-blue-50 hover:bg-blue-100 opacity-0 group-hover:opacity-100 focus:opacity-100'
+                        }`}
+                      >
+                        <Edit3 className="w-4 h-4" />
+                        {hasCustomLink ? 'Edit Link' : 'Add Link'}
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

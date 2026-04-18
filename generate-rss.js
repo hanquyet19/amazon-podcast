@@ -35,7 +35,17 @@ async function main() {
 
   // Update Links for each episode
   if (jObj.rss && jObj.rss.channel && jObj.rss.channel.item) {
-    const items = Array.isArray(jObj.rss.channel.item) ? jObj.rss.channel.item : [jObj.rss.channel.item];
+    let items = Array.isArray(jObj.rss.channel.item) ? jObj.rss.channel.item : [jObj.rss.channel.item];
+    data.hiddenEpisodes = data.hiddenEpisodes || [];
+    
+    // Filter out hidden episodes
+    items = items.filter(item => {
+      let guidStr = item.guid;
+      if (typeof item.guid === 'object' && item.guid['#text']) {
+         guidStr = item.guid['#text'];
+      }
+      return !data.hiddenEpisodes.includes(guidStr);
+    });
     
     let updatedCount = 0;
     for (let item of items) {
@@ -44,12 +54,15 @@ async function main() {
          guidStr = item.guid['#text'];
       }
       
-      if (guidStr && data.episodes[guidStr]) {
+      if (guidStr && data.episodes && data.episodes[guidStr]) {
         item.link = data.episodes[guidStr];
         updatedCount++;
       }
     }
-    console.log(`Updated ${updatedCount} episode links.`);
+    
+    // Re-assign the filtered and updated items back to the channel
+    jObj.rss.channel.item = items;
+    console.log(`Updated ${updatedCount} episode links. Removed ${data.hiddenEpisodes.length} hidden episodes.`);
   }
 
   console.log('Building new XML...');
