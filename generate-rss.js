@@ -2,13 +2,19 @@ import { XMLParser, XMLBuilder } from 'fast-xml-parser';
 import fs from 'fs';
 import path from 'path';
 
-const RSS_URL = 'https://anchor.fm/s/1110f80e0/podcast/rss';
 const DATA_FILE = path.resolve('./data.json');
 const OUTPUT_FILE = path.resolve('./public/feed.xml');
 
 async function main() {
-  console.log('Fetching Anchor RSS feed...');
-  const res = await fetch(RSS_URL);
+  console.log('Reading data.json...');
+  let data = { title: "Friendly Podcast For You", episodes: {} };
+  if (fs.existsSync(DATA_FILE)) {
+    data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+  }
+
+  const targetRssUrl = data.sourceRss || 'https://anchor.fm/s/1110f80e0/podcast/rss';
+  console.log(`Fetching Anchor RSS feed from ${targetRssUrl}...`);
+  const res = await fetch(targetRssUrl);
   const xmlData = await res.text();
 
   console.log('Parsing XML...');
@@ -21,11 +27,7 @@ async function main() {
   
   let jObj = parser.parse(xmlData);
 
-  console.log('Reading data.json...');
-  let data = { title: "My Custom Podcast Hub", episodes: {} };
-  if (fs.existsSync(DATA_FILE)) {
-    data = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-  }
+
 
   // Update Title
   if (data.title && jObj.rss && jObj.rss.channel) {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, RefreshCw, Save, Link as LinkIcon, Edit3, Globe, CheckCircle2, EyeOff, RotateCcw } from 'lucide-react';
+import { Settings, RefreshCw, Save, Link as LinkIcon, Edit3, Globe, CheckCircle2, EyeOff, RotateCcw, FastForward } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 
 const RSS_URL = 'https://corsproxy.io/?url=' + encodeURIComponent('https://anchor.fm/s/1110f80e0/podcast/rss');
@@ -9,13 +9,17 @@ export default function App() {
     return JSON.parse(localStorage.getItem('rssConfig')) || {
       token: '',
       owner: '',
-      repo: ''
+      repo: '',
+      sourceRss: 'https://anchor.fm/s/1110f80e0/podcast/rss'
     };
   });
 
   const [episodes, setEpisodes] = useState([]);
-  const [dataJson, setDataJson] = useState({ title: "Friendly Podcast For You", episodes: {} });
+  const [dataJson, setDataJson] = useState(() => {
+    return JSON.parse(localStorage.getItem('podcastDatabase')) || { title: "Friendly Podcast For You", episodes: {} };
+  });
   const [dataJsonSha, setDataJsonSha] = useState('');
+  const [filter, setFilter] = useState('all');
   
   const [isSyncing, setIsSyncing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -27,7 +31,8 @@ export default function App() {
   // Fetch Anchor RSS
   const fetchRSS = async () => {
     try {
-      const currentUrl = 'https://anchor.fm/s/1110f80e0/podcast/rss?nocache=' + Date.now();
+      const baseUrl = config.sourceRss || 'https://anchor.fm/s/1110f80e0/podcast/rss';
+      const currentUrl = baseUrl + '?nocache=' + Date.now();
       const res = await fetch(currentUrl);
       const text = await res.text();
       const parser = new DOMParser();
@@ -56,10 +61,21 @@ export default function App() {
         owner: config.owner,
         repo: config.repo,
         path: 'data.json',
+        headers: { 'If-None-Match': '' } // bypass cache
       });
       
       const content = atob(res.data.content);
-      setDataJson(JSON.parse(content));
+      const remoteData = JSON.parse(content);
+      
+      // Auto-merge with Local Database to prevent losing unsaved clicks
+      setDataJson(prev => {
+        const merged = { ...remoteData, ...prev };
+        merged.episodes = { ...(remoteData.episodes||{}), ...(prev.episodes||{}) };
+        merged.hiddenEpisodes = Array.from(new Set([...(remoteData.hiddenEpisodes||[]), ...(prev.hiddenEpisodes||[])]));
+        merged.skippedEpisodes = Array.from(new Set([...(remoteData.skippedEpisodes||[]), ...(prev.skippedEpisodes||[])]));
+        return merged;
+      });
+      
       setDataJsonSha(res.data.sha);
     } catch (e) {
       console.error('Failed to fetch data.json from GitHub', e);
@@ -72,6 +88,11 @@ export default function App() {
     await Promise.all([fetchRSS(), fetchGitHubData()]);
     setIsSyncing(false);
   };
+
+  // Auto-save to Local Database
+  useEffect(() => {
+    localStorage.setItem('podcastDatabase', JSON.stringify(dataJson));
+  }, [dataJson]);
 
   useEffect(() => {
     if (config.token && config.owner && config.repo) {
@@ -102,6 +123,23 @@ export default function App() {
     } else {
       newData.hiddenEpisodes.push(guid);
     }
+    if (newData.skippedEpisodes && newData.skippedEpisodes.includes(guid)) {
+      newData.skippedEpisodes = newData.skippedEpisodes.filter(id => id !== guid);
+    }
+    setDataJson(newData);
+  };
+
+  const toggleSkipEpisode = (guid) => {
+    const newData = { ...dataJson };
+    if (!newData.skippedEpisodes) newData.skippedEpisodes = [];
+    if (newData.skippedEpisodes.includes(guid)) {
+      newData.skippedEpisodes = newData.skippedEpisodes.filter(id => id !== guid);
+    } else {
+      newData.skippedEpisodes.push(guid);
+    }
+    if (newData.hiddenEpisodes && newData.hiddenEpisodes.includes(guid)) {
+      newData.hiddenEpisodes = newData.hiddenEpisodes.filter(id => id !== guid);
+    }
     setDataJson(newData);
   };
 
@@ -109,7 +147,8 @@ export default function App() {
     setIsSaving(true);
     try {
       const octokit = new Octokit({ auth: config.token });
-      const contentBase64 = btoa(JSON.stringify(dataJson, null, 2));
+      const payload = { ...dataJson, sourceRss: config.sourceRss || 'https://anchor.fm/s/1110f80e0/podcast/rss' };
+      const contentBase64 = btoa(JSON.stringify(payload, null, 2));
       
       await octokit.repos.createOrUpdateFileContents({
         owner: config.owner,
@@ -174,6 +213,16 @@ export default function App() {
               GitHub Settings
             </h2>
             <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-600 mb-1">Source RSS URL</label>
+                <input 
+                  type="text" 
+                  value={config.sourceRss || ''}
+                  onChange={(e) => setConfig({...config, sourceRss: e.target.value})}
+                  className="w-full border border-slate-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-emerald-500 outline-none transition"
+                  placeholder="https://anchor.fm/s/..."
+                />
+              </div>
               <div>
                 <label className="block text-sm font-medium text-slate-600 mb-1">Personal Access Token</label>
                 <input 
@@ -269,9 +318,43 @@ export default function App() {
           <p className="text-xs text-slate-400 mt-2">This title will override "friendly-life" when the feed is generated.</p>
         </div>
 
-        <h3 className="text-lg font-semibold text-slate-800 mb-4 border-b border-slate-100 pb-2">
-          Episodes ({episodes.length})
-        </h3>
+        <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-4">
+          <h3 className="text-lg font-semibold text-slate-800">
+            Episodes ({episodes.length})
+          </h3>
+          <div className="flex bg-slate-100 p-1 rounded-lg">
+            <button 
+              onClick={() => setFilter('all')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${filter === 'all' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              All
+            </button>
+            <button 
+              onClick={() => setFilter('unprocessed')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${filter === 'unprocessed' ? 'bg-white text-amber-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              New / Todo
+            </button>
+            <button 
+              onClick={() => setFilter('skipped')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${filter === 'skipped' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Skipped
+            </button>
+            <button 
+              onClick={() => setFilter('edited')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${filter === 'edited' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Edited
+            </button>
+            <button 
+              onClick={() => setFilter('hidden')}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition ${filter === 'hidden' ? 'bg-white text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+            >
+              Deleted
+            </button>
+          </div>
+        </div>
         
         {episodes.length === 0 ? (
           <div className="text-center py-12 text-slate-400">
@@ -279,21 +362,33 @@ export default function App() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {episodes.map(ep => {
+            {episodes.filter(ep => {
+              const hasCustomLink = dataJson.episodes && dataJson.episodes[ep.guid];
+              const isHidden = dataJson.hiddenEpisodes && dataJson.hiddenEpisodes.includes(ep.guid);
+              const isSkipped = dataJson.skippedEpisodes && dataJson.skippedEpisodes.includes(ep.guid);
+              if (filter === 'unprocessed') return !hasCustomLink && !isHidden && !isSkipped;
+              if (filter === 'edited') return hasCustomLink && !isHidden && !isSkipped;
+              if (filter === 'hidden') return isHidden;
+              if (filter === 'skipped') return isSkipped && !isHidden;
+              return true;
+            }).map(ep => {
               const hasCustomLink = dataJson.episodes && dataJson.episodes[ep.guid];
               const customLink = dataJson.episodes ? dataJson.episodes[ep.guid] : null;
               const isHidden = dataJson.hiddenEpisodes && dataJson.hiddenEpisodes.includes(ep.guid);
+              const isSkipped = dataJson.skippedEpisodes && dataJson.skippedEpisodes.includes(ep.guid);
 
               return (
                 <div key={ep.guid} className={`flex items-center justify-between p-4 rounded-xl border transition group ${
                   isHidden 
                     ? 'border-slate-100 bg-slate-50 opacity-60 grayscale' 
-                    : hasCustomLink 
-                      ? 'border-emerald-100 bg-emerald-50/30' 
-                      : 'border-slate-100 bg-white hover:border-blue-200'
+                    : isSkipped
+                      ? 'border-indigo-100 bg-indigo-50/50'
+                      : hasCustomLink 
+                        ? 'border-emerald-100 bg-emerald-50/30' 
+                        : 'border-slate-100 bg-white hover:border-blue-200'
                 }`}>
                   <div className="flex-1 min-w-0 pr-4">
-                    <h4 className={`font-semibold truncate ${isHidden ? 'text-slate-500 line-through' : 'text-slate-800'}`} title={ep.title}>
+                    <h4 className={`font-semibold truncate ${isHidden ? 'text-slate-500 line-through' : isSkipped ? 'text-indigo-800' : 'text-slate-800'}`} title={ep.title}>
                       {ep.title}
                     </h4>
                     <p className="text-xs text-slate-400 mt-1">{new Date(ep.pubDate).toLocaleDateString()}</p>
@@ -314,6 +409,19 @@ export default function App() {
                   </div>
                   
                   <div className="flex-shrink-0 flex items-center gap-2">
+                    {!isHidden && (
+                      <button 
+                        onClick={() => toggleSkipEpisode(ep.guid)}
+                        className={`flex items-center justify-center p-2 rounded-lg transition ${
+                          isSkipped 
+                            ? 'text-indigo-600 bg-indigo-100 hover:bg-indigo-200'
+                            : 'text-indigo-400 bg-indigo-50 hover:bg-indigo-100 opacity-0 group-hover:opacity-100 focus:opacity-100'
+                        }`}
+                        title={isSkipped ? "Unskip Episode" : "Skip Episode"}
+                      >
+                        {isSkipped ? <RotateCcw className="w-4 h-4" /> : <FastForward className="w-4 h-4" />}
+                      </button>
+                    )}
                     <button 
                       onClick={() => toggleHideEpisode(ep.guid)}
                       className={`flex items-center justify-center p-2 rounded-lg transition ${
