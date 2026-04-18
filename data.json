@@ -3,23 +3,5 @@
   "episodes": {
     "b3f12f3d-323f-4ea1-bbb6-65eb81f5c468": "https://github.com/hanquyet19/"
   },
-  "hiddenEpisodes": [
-    "b89f4dcc-84a9-409f-bbf0-b056e4a3fbae",
-    "f8fd03a0-2999-4bbf-817c-f8ce04a8d2b4",
-    "62184896-4940-4f53-b03e-79019d158cc7",
-    "03ae2d64-e997-4b2d-9392-7e41e33cad5a",
-    "2de507c9-749e-4536-a130-1549fc7ef769",
-    "224f9026-0c0f-438a-b7c7-586960bade41",
-    "ef53b578-7ff6-41bd-ac72-05f7e57d224d",
-    "8802bc09-579f-4578-aabd-0a721793bdd7",
-    "e89e1c6c-c2c5-4a26-ba0d-7af510abe027",
-    "cc535370-5bbc-4861-92ce-3d25b43ab52c",
-    "e1abf84d-3954-4188-b916-11f6251d57ed",
-    "edb13485-5d89-4b93-b6eb-99eae4bb1da4",
-    "9ba1281a-647e-4796-9e57-d44344397822",
-    "33815b08-e177-49cb-baa9-154d291c3fcd",
-    "dfce4703-cef2-46ab-82c2-69ff6c81e19f",
-    "156c9793-bc93-4a82-9bd7-d840e7d322d5",
-    "4bc36422-441c-4bbf-a212-9251db6a9f4f"
-  ]
+  "hiddenEpisodes": []
 }
