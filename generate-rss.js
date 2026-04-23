@@ -23,6 +23,11 @@ async function main() {
     attributeNamePrefix: "@_",
     cdataPropName: "__cdata",
     format: true,
+    processEntities: {
+      enabled: true,
+      maxTotalExpansions: 50000,
+      maxEntityCount: 10000,
+    }
   });
   
   let jObj = parser.parse(xmlData);
