@@ -1,4 +1,4 @@
-import { XMLParser, XMLBuilder } from 'fast-xml-parser';
+import { XMLBuilder, XMLParser, XMLValidator } from 'fast-xml-parser';
 import fs from 'fs';
 import path from 'path';
 
@@ -31,8 +31,7 @@ async function main() {
   });
   
   let jObj = parser.parse(xmlData);
-
-
+  delete jObj['?xml'];
 
   // Update Title
   if (data.title && jObj.rss && jObj.rss.channel) {
@@ -89,7 +88,12 @@ async function main() {
   }
 
   console.log('Writing feed.xml...');
-  const finalXml = modifiedXml.startsWith('<?xml') ? modifiedXml : '<?xml version="1.0" encoding="UTF-8"?>\n' + modifiedXml;
+  const xmlBody = modifiedXml.replace(/^<\?xml[^>]*\?>\s*/i, '');
+  const finalXml = '<?xml version="1.0" encoding="UTF-8"?>\n' + xmlBody;
+  const validationResult = XMLValidator.validate(finalXml);
+  if (validationResult !== true) {
+    throw new Error(`Generated RSS is invalid: ${JSON.stringify(validationResult)}`);
+  }
   fs.writeFileSync(OUTPUT_FILE, finalXml);
   console.log('Done!');
 }
