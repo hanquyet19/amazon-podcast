@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { Settings, RefreshCw, Save, Link as LinkIcon, Edit3, Globe, CheckCircle2, EyeOff, RotateCcw, FastForward } from 'lucide-react';
 import { Octokit } from '@octokit/rest';
 
@@ -29,7 +29,7 @@ export default function App() {
   const [editingLink, setEditingLink] = useState('');
 
   // Fetch Anchor RSS
-  const fetchRSS = async () => {
+  const fetchRSS = useCallback(async () => {
     try {
       const baseUrl = config.sourceRss || 'https://anchor.fm/s/1110f80e0/podcast/rss';
       const currentUrl = baseUrl + '?nocache=' + Date.now();
@@ -50,10 +50,10 @@ export default function App() {
       console.error('Failed to fetch RSS', e);
       alert('Failed to fetch RSS from Anchor.');
     }
-  };
+  }, [config.sourceRss]);
 
   // Fetch data.json from GitHub
-  const fetchGitHubData = async () => {
+  const fetchGitHubData = useCallback(async () => {
     if (!config.token || !config.owner || !config.repo) return;
     try {
       const octokit = new Octokit({ auth: config.token });
@@ -81,13 +81,13 @@ export default function App() {
       console.error('Failed to fetch data.json from GitHub', e);
       // Could be file doesn't exist yet, ignore
     }
-  };
+  }, [config.owner, config.repo, config.token]);
 
-  const handleSync = async () => {
+  const handleSync = useCallback(async () => {
     setIsSyncing(true);
     await Promise.all([fetchRSS(), fetchGitHubData()]);
     setIsSyncing(false);
-  };
+  }, [fetchGitHubData, fetchRSS]);
 
   // Auto-save to Local Database
   useEffect(() => {
@@ -96,9 +96,9 @@ export default function App() {
 
   useEffect(() => {
     if (config.token && config.owner && config.repo) {
-      handleSync();
+      Promise.resolve().then(handleSync);
     }
-  }, []); // Run once on mount if config is set
+  }, [config.owner, config.repo, config.token, handleSync]);
 
   const saveConfig = () => {
     localStorage.setItem('rssConfig', JSON.stringify(config));
